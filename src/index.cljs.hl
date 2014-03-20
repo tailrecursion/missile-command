@@ -25,46 +25,89 @@
 
 (defn seconds [n] (str n "s"))
 
-(defn icbm [{:keys [x-start x-end]}]
-  (let [duration (flight-time x-start x-end +icbm-velocity+)
-        blast-duration (flight-time 0 +blast-radius+ +blast-velocity+)]
-    (with-timeout (* 1000 duration) (.play (js/Audio. nuke-sound)))
-    (svg/g
-     (svg/line :x1 x-start
-               :y1 0
-               :x2 x-start
-               :y2 0
-               :css {:stroke "red" :stroke-width 1}
-               (svg/animate :attributeName "x2"
-                            :from x-start
-                            :to x-end
-                            :begin "0s"
-                            :dur (seconds duration))
-               (svg/animate :attributeName "y2"
-                            :from 0
-                            :to +height+
-                            :begin "0s"
-                            :dur (seconds duration)))
-     (svg/circle
-      :cx x-end
-      :cy +height+
-      :r 0
-      :css {:fill "white"}
-      (svg/animate
-       :attributeName "r"
-       :from +blast-radius+
-       :to 0
-       :begin (seconds duration)
-       :dur (seconds blast-duration))))))
+(defelem with-children [{:keys [children]} [elem]]
+  (let [append! #(doto (js/jQuery %1)
+                   (.empty)
+                   (.append %2))]
+    (with-let [e elem]
+      (append! elem @children)
+      (add-watch children (gensym) (fn [_ _ _ v] (append! elem v))))))
+
+(defn icbm [basis]
+  (with-children
+    :children
+    (cell=
+     (let [{:keys [x1 x2 t0]} basis
+           duration (flight-time x1 x2 +icbm-velocity+)
+           blast-duration (flight-time 0 +blast-radius+ +blast-velocity+)
+           [a1 a2] (map str (repeatedly gensym))
+           timer-el (svg/animate :id a1
+                                 :dur "0s"
+                                 :begin "indefinite"
+                                 :attributeName "x2"
+                                 :from x1
+                                 :to x1)]
+       (with-timeout 0 (.beginElement timer-el))
+       
+       (svg/g
+        (svg/line :x1 x1
+                  :y1 0
+                  :x2 x1
+                  :y2 0
+                  :css {:stroke "red" :stroke-width 1}
+                  timer-el
+                  (svg/animate :attributeName "x2"
+                               :from x1
+                               :to x2
+                               :begin (str "0s;" a1 ".end")
+                               :dur (str (seconds duration) ";" a1 ".end"))
+                  (svg/animate :attributeName "y2"
+                               :from 0
+                               :to +height+
+                               :begin (str "0s;" a1 ".end")
+                               :dur (str (seconds duration) ";" a1 ".end")))
+        (svg/circle
+         :cx x2
+         :cy +height+
+         :r 0
+         :css {:fill "white"}
+         (svg/animate
+          :attributeName "r"
+          :from +blast-radius+
+          :to 0
+          :begin (seconds duration)
+          :dur (seconds blast-duration))))))
+    (svg/g)))
+
+(defc game {:icbms []})
+(cell= (print game))
+
+(defn launch! []
+  (swap!
+   game
+   update-in
+   [:icbms]
+   conj
+   {:x1 (rand-int +width+)
+    :x2 (rand-int +width+)
+    :t0 (.getTime (js/Date.))}))
+
+#_(with-interval 100 (launch!))
+
+(defmethod do! :children [elem _ arg]
+  (print elem arg)
+  (add-watch arg :icbms (fn [_ _ _ v]
+                          (doto (js/jQuery elem)
+                            (.empty)
+                            (.append v)))))
 
 (html
   (head)
   (body
     (h1 "Missile Command")
+    (button :on-click #(launch!) "Launch!")
     (svg/svg
      :viewBox (str "0 0 " +height+ " " +width+)
      (svg/rect :x 0 :y 0 :width +width+ :height +height+ :css {:fill "black"})
-     (mapv (fn [_]
-             (icbm {:x-start (rand-int +width+)
-                    :x-end (rand-int +width+)}))
-           (repeat 10 nil)))))
+     (loop-tpl :bindings [basis (cell= (:icbms game))]
+       (icbm basis)))))

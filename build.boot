@@ -20,6 +20,6 @@
   [& args]
   (comp
    (watch)
-   (hear)
+   #_(hear)
    (hoplon {:prerender false})
    (dev-server)))
