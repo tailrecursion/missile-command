@@ -1,0 +1,9 @@
+(page "index.html"
+      (:require [tailrecursion.hoplon.reload :refer [reload-all]]))
+
+(reload-all)
+
+(html
+  (head)
+  (body
+    (h1 "Missile Command")))
