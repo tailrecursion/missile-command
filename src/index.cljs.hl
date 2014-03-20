@@ -1,9 +1,70 @@
 (page "index.html"
-      (:require [tailrecursion.hoplon.reload :refer [reload-all]]))
+      (:require
+       [tailrecursion.hoplon.svg :as svg]
+       [tailrecursion.hoplon.reload :refer [reload-all]]))
 
 (reload-all)
+
+(def +render-loop-interval+   .1)
+(def +width+                  125)
+(def +height+                 100)
+(def +icbm-launch-interval+   1)
+(def +missile-velocity+       10)
+(def +icbm-velocity+          20)
+(def +blast-velocity+         75)
+(def +blast-radius+           10)
+
+(def nuke-sound "sounds/nuke.mp3")
+
+(defn flight-distance [x1 x2]
+  (js/Math.sqrt (+ (js/Math.pow (js/Math.abs (- x2 x1)) 2)
+           (js/Math.pow +height+ 2))))
+
+(defn flight-time [x1 x2 v]
+  (/ (flight-distance x1 x2) (js/Math.abs v)))
+
+(defn seconds [n] (str n "s"))
+
+(defn icbm [{:keys [x-start x-end]}]
+  (let [duration (flight-time x-start x-end +icbm-velocity+)
+        blast-duration (flight-time 0 +blast-radius+ +blast-velocity+)]
+    (with-timeout (* 1000 duration) (.play (js/Audio. nuke-sound)))
+    (svg/g
+     (svg/line :x1 x-start
+               :y1 0
+               :x2 x-start
+               :y2 0
+               :css {:stroke "red" :stroke-width 1}
+               (svg/animate :attributeName "x2"
+                            :from x-start
+                            :to x-end
+                            :begin "0s"
+                            :dur (seconds duration))
+               (svg/animate :attributeName "y2"
+                            :from 0
+                            :to +height+
+                            :begin "0s"
+                            :dur (seconds duration)))
+     (svg/circle
+      :cx x-end
+      :cy +height+
+      :r 0
+      :css {:fill "white"}
+      (svg/animate
+       :attributeName "r"
+       :from +blast-radius+
+       :to 0
+       :begin (seconds duration)
+       :dur (seconds blast-duration))))))
 
 (html
   (head)
   (body
-    (h1 "Missile Command")))
+    (h1 "Missile Command")
+    (svg/svg
+     :viewBox (str "0 0 " +height+ " " +width+)
+     (svg/rect :x 0 :y 0 :width +width+ :height +height+ :css {:fill "black"})
+     (mapv (fn [_]
+             (icbm {:x-start (rand-int +width+)
+                    :x-end (rand-int +width+)}))
+           (repeat 10 nil)))))
