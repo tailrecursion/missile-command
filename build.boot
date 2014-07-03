@@ -1,11 +1,13 @@
 #!/usr/bin/env boot
 
-#tailrecursion.boot.core/version "2.2.1"
+#tailrecursion.boot.core/version "2.5.0"
 
 (set-env!
- :dependencies (read-string (slurp "deps.edn"))
- :src-paths    #{"src"}
- :out-path     "resources/public")
+  :project	'missile-command
+  :version	"0.1.1-SNAPSHOT"
+  :dependencies (read-string (slurp "deps.edn"))
+  :out-path     "resources/public"
+  :src-paths    #{"src"})
 
 (add-sync! (get-env :out-path) #{"resources/assets"})
 
